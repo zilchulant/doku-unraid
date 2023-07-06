@@ -1,0 +1,86 @@
+# Internal Services
+# depends on traefik and traefik networks
+# - paperless-ngx
+#   - paperless_redis
+#   - paperless_webdav - for uploading via scanner app
+
+version: '3'
+services:
+
+  paperless_redis:
+    image: redis
+    container_name: paperless_redis
+    networks:
+      - a_ser_traefik_paperless
+    environment:
+      TZ: "Europe/Berlin"
+    labels:
+      - net.unraid.docker.icon="https://raw.githubusercontent.com/juusujanar/unraid-templates/master/img/Redis-logo.png"
+
+  paperless-ngx:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    container_name: paperless-ngx
+    networks:
+      - a_ser_traefik_paperless
+    depends_on:
+      - paperless_redis
+    environment:
+      TZ: "Europe/Berlin"
+      PAPERLESS_REDIS: "redis://paperless_redis:6379" # old redis /paperless needed an IP instead of container-name
+      PAPERLESS_OCR_LANGUAGE: "deu+eng"
+      PAPERLESS_OCR_LANGUAGES: "deu eng"
+      PAPERLESS_FILENAME_FORMAT: "unknown/{correspondent}/{created_year}-{created_month}-{created_day} {title}"
+      PAPERLESS_TIME_ZONE: "Europe/Berlin"
+      PAPERLESS_FILENAME_FORMAT_REMOVE_NONE: "True"
+      PAPERLESS_OCR_OUTPUT_TYP: "pdfa"
+      PAPERLESS_OCR_CLEAN: "clean-final"
+      PAPERLESS_TASK_WORKERS: "2"
+      PAPERLESS_URL: "<<server URL / Traefik URL>>"
+      PAPERLESS_THREADS_PER_WORKER: "2"
+      PAPERLESS_IGNORE_DATES: "<<>>"
+      PAPERLESS_CONSUMER_POLLING: "0"
+      PAPERLESS_SECRET_KEY: "<<>>"
+    labels:
+      - net.unraid.docker.icon=https://raw.githubusercontent.com/selfhosters/unRAID-CA-templates/master/templates/img/paperless.png
+      - traefik.enable=true
+      - traefik.http.routers.paperless-ngx.rule=Host(`<<>>`) && PathPrefix(`/`)
+      - traefik.http.routers.paperless-ngx.entrypoints=https
+      - traefik.http.routers.paperless-ngx.tls.certresolver=<<>>
+      - traefik.http.services.paperless-ngx.loadbalancer.server.port=8000
+      - traefik.docker.network=paperless
+      - traefik.http.middlewares.paperless-redirect.redirectscheme.scheme=https
+    volumes:
+      - <<>>/paperless-ngx:/usr/src/paperless/data:rw
+      - <<>>/media:/usr/src/paperless/media:rw
+      - <<>>/consume:/usr/src/paperless/consume:rw
+      - <<>>/export:/usr/src/paperless/export:rw
+      - <<>>/trash:/usr/src/paperless/trash:rw
+#    ports: default Ports of Paperless
+#      - "8000:8000/tcp"
+#      - "4433:443/tcp"
+
+  paperless_webdav:
+    image: rclone/rclone
+    container_name: rclone-webdav
+    command: ["serve", "webdav", "--addr", ":8080", "--vfs-cache-mode", "writes", "--dir-cache-time", "1m", "--buffer-size", "256M", "--htpasswd", "/config/htpasswd", "/data"]
+    volumes:
+      - <<>>/config:/config
+      - <<>>/consume:/data
+    networks:
+      - a_ser_traefik_dave
+    labels:
+      - net.unraid.docker.icon="https://raw.githubusercontent.com/binhex/docker-templates/master/binhex/images/rclone-icon.png"
+      - traefik.enable=true
+      - traefik.http.routers.dave.rule=Host(`<<>>`)
+      - traefik.http.routers.dave.tls.certresolver=<<>>
+      - traefik.http.routers.dave.entrypoints=https
+      - traefik.http.services.dave.loadbalancer.server.port=8080
+      - traefik.docker.network=dave
+      - traefik.http.middlewares.dave-https.redirectscheme.scheme=https
+    restart: always
+
+networks:
+  a_ser_traefik_paperless:
+    external: true
+  a_ser_traefik_dave:
+    external: true
