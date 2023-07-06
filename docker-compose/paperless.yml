@@ -11,7 +11,7 @@ services:
     image: redis
     container_name: paperless_redis
     networks:
-      - a_ser_traefik_paperless
+      - <>_paperless
     environment:
       TZ: "Europe/Berlin"
     labels:
@@ -21,7 +21,7 @@ services:
     image: ghcr.io/paperless-ngx/paperless-ngx:latest
     container_name: paperless-ngx
     networks:
-      - a_ser_traefik_paperless
+      - <>_paperless
     depends_on:
       - paperless_redis
     environment:
@@ -67,7 +67,7 @@ services:
       - <<>>/config:/config
       - <<>>/consume:/data
     networks:
-      - a_ser_traefik_dave
+      - <>_dave
     labels:
       - net.unraid.docker.icon="https://raw.githubusercontent.com/binhex/docker-templates/master/binhex/images/rclone-icon.png"
       - traefik.enable=true
@@ -80,7 +80,7 @@ services:
     restart: always
 
 networks:
-  a_ser_traefik_paperless:
+  <>paperless:
     external: true
-  a_ser_traefik_dave:
+  <>_dave:
     external: true
